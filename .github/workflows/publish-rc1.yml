@@ -1,16 +1,25 @@
-name: Publish approved Community RC1
+name: Sync approved Community RC1 release notes
+
 on:
   push:
     branches: [main]
-    paths: ['releases/ITControl_Community_RC1.zip', 'releases/ITControl_Community_RC1.zip.sha256']
+    paths:
+      - '.github/workflows/publish-rc1.yml'
+      - 'README.md'
+      - 'releases/ITControl_Community_RC1.zip'
+      - 'releases/ITControl_Community_RC1.zip.sha256'
   workflow_dispatch:
+
 permissions:
   contents: write
+
 concurrency:
   group: publish-rc1
   cancel-in-progress: false
+
 jobs:
-  publish:
+  sync-notes:
+    name: Verify frozen RC1 assets and synchronize release notes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,25 +28,49 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify approved archive
+      - name: Verify the approved RC1 package is unchanged
         run: |
           python - <<'PY'
           from pathlib import Path
-          import hashlib, zipfile
-          p = Path('releases/ITControl_Community_RC1.zip')
-          assert hashlib.sha256(p.read_bytes()).hexdigest() == p.with_suffix('.zip.sha256').read_text().split()[0]
-          with zipfile.ZipFile(p) as z:
-              assert z.testzip() is None
-              assert z.read('app/VERSION').strip() == b'2.0.0-RC1'
-              assert 'Configure-Startup.ps1' in z.namelist()
+          import hashlib
+          import zipfile
+
+          approved = '4c4fe1cca56458ccbde13faf9d1a511826aee4182afadddeac31250397e02f58'
+          package = Path('releases/ITControl_Community_RC1.zip')
+          checksum = package.with_suffix('.zip.sha256').read_text(encoding='utf-8').split()
+          assert checksum == [approved, package.name], 'Approved SHA-256 manifest was changed'
+          assert hashlib.sha256(package.read_bytes()).hexdigest() == approved, 'Approved RC1 ZIP was changed'
+          with zipfile.ZipFile(package) as archive:
+              assert archive.testzip() is None, 'RC1 ZIP integrity check failed'
+              assert archive.read('app/VERSION').strip() == b'2.0.0-RC1', 'Wrong RC1 version'
+              assert 'Configure-Startup.ps1' in archive.namelist(), 'Windows startup helper missing'
           PY
-      - name: Publish RC1 testing assets
+      - name: Verify published RC1 asset is unchanged
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          if gh release view RC1 >/dev/null 2>&1; then
-            gh release upload RC1 releases/ITControl_Community_RC1.zip releases/ITControl_Community_RC1.zip.sha256 --clobber
-          else
-            gh release create RC1 releases/ITControl_Community_RC1.zip releases/ITControl_Community_RC1.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "IT.Control Community RC1" --notes-file README.md
-          fi
+          published_digest="$(gh api "repos/$GH_REPO/releases/tags/RC1" \
+            --jq '.assets[] | select(.name == "ITControl_Community_RC1.zip") | .digest')"
+          test "$published_digest" = 'sha256:4c4fe1cca56458ccbde13faf9d1a511826aee4182afadddeac31250397e02f58' || {
+            echo 'Published RC1 does not match the approved archive; refusing to update release.' >&2
+            exit 1
+          }
+      - name: Prepare full release description with working links
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          readme = Path('README.md').read_text(encoding='utf-8')
+          base = f'https://github.com/{os.environ["GH_REPOSITORY"]}/blob/main/'
+          readme = readme.replace('](docs/', f']({base}docs/')
+          readme = readme.replace('](LICENSE.txt)', f']({base}LICENSE.txt)')
+          Path('rc1-release-notes.md').write_text(readme, encoding='utf-8')
+          PY
+      - name: Update release description only (never upload or replace assets)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit RC1 --notes-file rc1-release-notes.md
