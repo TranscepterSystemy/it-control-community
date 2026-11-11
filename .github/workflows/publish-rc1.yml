@@ -1,0 +1,43 @@
+name: Publish approved Community RC1
+on:
+  push:
+    branches: [main]
+    paths: ['releases/ITControl_Community_RC1.zip', 'releases/ITControl_Community_RC1.zip.sha256']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: publish-rc1
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify approved archive
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, zipfile
+          p = Path('releases/ITControl_Community_RC1.zip')
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == p.with_suffix('.zip.sha256').read_text().split()[0]
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None
+              assert z.read('app/VERSION').strip() == b'2.0.0-RC1'
+              assert 'Configure-Startup.ps1' in z.namelist()
+          PY
+      - name: Publish RC1 testing assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view RC1 >/dev/null 2>&1; then
+            gh release upload RC1 releases/ITControl_Community_RC1.zip releases/ITControl_Community_RC1.zip.sha256 --clobber
+          else
+            gh release create RC1 releases/ITControl_Community_RC1.zip releases/ITControl_Community_RC1.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "IT.Control Community RC1" --notes-file README.md
+          fi
