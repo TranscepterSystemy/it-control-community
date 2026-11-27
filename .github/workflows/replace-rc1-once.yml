@@ -1,0 +1,54 @@
+name: Replace Community RC1 package once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/replace-rc1-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  replace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download validated RC1 candidate artifact
+        run: |
+          curl --fail --location 'https://sdmntprpolandcentral.oaiusercontent.com/files/00000000-6980-820a-9bcb-9b4fdb3b21f8/raw?se=2026-11-27T06%3A37%3A57Z&sp=r&sv=2026-06-06&sr=b&scid=812200de-f128-588b-bf63-248b601240cb&skoid=d4d17077-8f33-42a9-bd8b-aa9d5eaf5320&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-11-26T22%3A59%3A00Z&ske=2026-11-27T22%3A59%3A00Z&sks=b&skv=2026-06-06&sig=vtDTNKZ7x4ZitpXXHzesRJglFEpagHP/njdCSpweODk%3D' --output /tmp/rc1-artifact.zip
+          mkdir -p /tmp/rc1
+          unzip -q /tmp/rc1-artifact.zip -d /tmp/rc1
+          ls -la /tmp/rc1
+
+      - name: Validate and replace RC1
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, zipfile
+          src = Path('/tmp/rc1/ITControl_Community_RC1.zip')
+          assert src.exists(), 'candidate ZIP missing'
+          with zipfile.ZipFile(src) as z:
+              assert z.testzip() is None
+              assert z.read('app/VERSION').decode('utf-8').strip() == '2.0.0-RC1'
+              names=set(z.namelist())
+              for required in ('app/expenses_module.py','app/static/expenses.js','app/static/expenses.css'):
+                  assert required in names, required
+          dst = Path('releases/ITControl_Community_RC1.zip')
+          dst.write_bytes(src.read_bytes())
+          sha = hashlib.sha256(dst.read_bytes()).hexdigest()
+          Path('releases/ITControl_Community_RC1.zip.sha256').write_text(
+              sha + '  ITControl_Community_RC1.zip\n', encoding='utf-8'
+          )
+          print('sha256:', sha)
+          PY
+
+      - name: Commit replaced RC1 package
+        run: |
+          git config user.name "Transcepter Systems CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add releases/ITControl_Community_RC1.zip releases/ITControl_Community_RC1.zip.sha256
+          git diff --cached --quiet && exit 0
+          git commit -m "release: replace Community RC1 with Expenses-enabled build"
+          git push
