@@ -24,9 +24,9 @@
 
 **[Скачать IT.Control Community RC1](https://github.com/TranscepterSystemy/it-control-community/releases/download/RC1/ITControl_Community_RC1.zip)**
 
-Архив содержит актуальную сборку Community RC1 для запуска через `START.cmd`. Скачивание доступно всем без авторизации. Текущая сборка включает бесплатный модуль учёта ИТ-расходов.
+Архив содержит актуальную сборку Community RC1 для запуска через `START.cmd`. Скачивание доступно всем без авторизации. Текущая сборка включает бесплатный модуль учёта ИТ-расходов и унифицированные схематичные пиктограммы оборудования в стиле интерфейса IT.Control.
 
-[SHA-256 архива](https://github.com/TranscepterSystemy/it-control-community/releases/download/RC1/ITControl_Community_RC1.zip.sha256) · `2f822daa2a7c8020df423cf6cf525285f8371dc077a90c537cc6b56a2e91785b`
+[SHA-256 архива](https://github.com/TranscepterSystemy/it-control-community/releases/download/RC1/ITControl_Community_RC1.zip.sha256) · `f679fcafa740f0b3ffe3c085ffa370e2b8aba21e575aa00a4c7883302bb6d322`
 
 Для установки используй архив **ITControl_Community_RC1.zip** по ссылке выше.
 
