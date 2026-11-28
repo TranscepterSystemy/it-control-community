@@ -45,8 +45,8 @@ jobs:
               assert archive.read('app/VERSION').strip() == b'2.0.0-RC1', 'Wrong RC1 version'
               assert 'Configure-Startup.ps1' in archive.namelist(), 'Windows startup helper missing'
               assert 'app/expenses_module.py' in archive.namelist(), 'Expenses module missing from approved RC1'
-    assert 'app/static/equipment-icons.js' in archive.namelist(), 'Equipment icon library missing from approved RC1'
-    assert 'app/static/equipment-icons.css' in archive.namelist(), 'Equipment icon styles missing from approved RC1'
+              assert 'app/static/equipment-icons.js' in archive.namelist(), 'Equipment icon library missing from approved RC1'
+              assert 'app/static/equipment-icons.css' in archive.namelist(), 'Equipment icon styles missing from approved RC1'
           PY
       - name: Verify published RC1 asset is unchanged
         env:
