@@ -1,4 +1,5 @@
 name: Refresh RC1 icons package once
+# trigger
 
 on:
   push:
